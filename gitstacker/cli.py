@@ -49,6 +49,7 @@ HELP_TEXT = f"""
   {cyan("restack")}                 Rebase all branches in current stack
   {cyan("submit")} [--draft]        Create/update stacked PRs
   {cyan("sync")}                    Fetch trunk, update, and restack
+  {cyan("diff")} [--stat]          Show diff of current branch vs parent
   {cyan("delete")} [name] [--force] Remove branch from stack
   {cyan("trunk")} [name]            Show or set trunk branch
   {cyan("status")} [--json]         Show current state (JSON for AI agents)
@@ -152,6 +153,10 @@ def main() -> None:
         elif command == "sync":
             from .commands.sync import cmd_sync
             cmd_sync(command_args)
+
+        elif command == "diff":
+            from .commands.diff import cmd_diff
+            cmd_diff(command_args)
 
         elif command in ("delete", "del", "rm"):
             from .commands.delete import cmd_delete

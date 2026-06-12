@@ -1,7 +1,7 @@
 """gs submit - Create or update stacked PRs for the entire stack."""
 
 import sys
-from ..git_ops import get_current_branch, push_branch
+from ..git_ops import get_current_branch, push_branch, has_remote_diverged
 from ..store import (
     load_state, save_state, get_current_stack, get_parent_branch,
 )
@@ -45,9 +45,18 @@ def cmd_submit(args: list[str]) -> None:
 
     # Push all branches
     info("Pushing branches to remote...")
+    force = "--force" in args
     for branch in stack["branches"]:
         sys.stdout.write(f"  {dim('push')} {branch}...")
         sys.stdout.flush()
+
+        # Check for divergence before force-pushing
+        if has_remote_diverged(branch):
+            if not force:
+                print(f" {yellow('DIVERGED')}")
+                info(f'  Remote has new commits on "{branch}". Use --force to overwrite.')
+                continue
+
         result = push_branch(branch, force=True)
         if result.success:
             print(f" {green('OK')}")

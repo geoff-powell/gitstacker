@@ -166,3 +166,14 @@ def rebase_abort() -> None:
 def pull_rebase(branch: str) -> GitResult:
     """Pull with rebase from origin."""
     return git("pull", "--rebase", "origin", branch)
+
+
+def has_remote_diverged(branch: str) -> bool:
+    """Check if remote branch has commits not in local branch.
+
+    Returns True if remote has diverged (someone else pushed).
+    """
+    result = git("rev-list", "--count", f"{branch}..origin/{branch}")
+    if not result.success:
+        return False  # No remote branch yet
+    return int(result.stdout) > 0

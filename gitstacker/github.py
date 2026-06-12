@@ -97,11 +97,16 @@ def create_pr(
     if info:
         return info
 
-    # Fallback: parse URL
+    # Fallback: parse URL for PR number
     import re
     match = re.search(r"/pull/(\d+)", url)
+    if not match:
+        raise RuntimeError(
+            f"PR created but could not determine PR number from URL: {url}"
+        )
+
     return PrInfo(
-        number=int(match.group(1)) if match else 0,
+        number=int(match.group(1)),
         url=url,
         title=title,
         state="OPEN",

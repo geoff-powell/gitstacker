@@ -2,7 +2,7 @@
 
 from ..git_ops import (
     get_current_branch, checkout, get_commit_hash,
-    is_working_tree_clean, stash_push, stash_pop,
+    is_working_tree_clean, stash_push,
     rebase_abort, rebase_onto,
 )
 from ..git_ops import git
@@ -47,6 +47,7 @@ def cmd_restack(args: list[str]) -> None:
 
     failed = False
     failed_branch = ""
+    successfully_rebased = []
 
     for i, branch in enumerate(stack["branches"]):
         parent = get_parent_branch(state, stack, branch)
@@ -74,6 +75,7 @@ def cmd_restack(args: list[str]) -> None:
             simple_result = git("rebase", parent, branch)
             if simple_result.success:
                 print(f" {green('OK')}")
+                successfully_rebased.append(branch)
                 if branch in state["branches"]:
                     state["branches"][branch]["commit_base"] = get_commit_hash(parent)
             else:
@@ -81,21 +83,36 @@ def cmd_restack(args: list[str]) -> None:
                 rebase_abort()
                 failed = True
                 failed_branch = branch
+                # Do NOT update state for this branch
                 break
         else:
             print(f" {green('OK')}")
+            successfully_rebased.append(branch)
             # Update commit base
             if branch in state["branches"]:
                 state["branches"][branch]["commit_base"] = get_commit_hash(parent)
 
+    # Store or clear restack progress
+    if failed:
+        state["_restack_progress"] = {
+            "stack": stack["name"],
+            "failed_at": failed_branch,
+            "completed": successfully_rebased,
+            "original_branch": current_branch,
+        }
+    else:
+        state.pop("_restack_progress", None)
+
+    # Always save state (only successfully rebased branches had commit_base updated)
+    save_state(state)
+
     if not failed:
-        save_state(state)
         print()
         success("Stack restacked successfully!")
     else:
-        save_state(state)
         print()
         warn(f'Restacking stopped at "{failed_branch}" due to conflicts.')
+        info(f"Successfully rebased: {len(successfully_rebased)}/{branch_count} branches")
         info("Resolve conflicts manually, then run `gs restack` again.")
 
     # Return to original branch
@@ -105,7 +122,11 @@ def cmd_restack(args: list[str]) -> None:
         if stack["branches"]:
             checkout(stack["branches"][-1])
 
-    # Pop stash
+    # Pop stash safely
     if did_stash:
         info("Restoring stashed changes...")
-        stash_pop()
+        pop_result = git("stash", "pop")
+        if not pop_result.success:
+            warn("Could not automatically restore stashed changes.")
+            info("Your changes are still in the stash. Run `git stash pop` manually.")
+            info(f"Stash error: {pop_result.stderr}")

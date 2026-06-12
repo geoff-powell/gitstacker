@@ -48,4 +48,5 @@ def cmd_delete(args: list[str]) -> None:
         success(f'Removed "{branch}" from stack "{stack["name"]}".')
         info("Git branch still exists. Use --force to also delete the git branch.")
 
-    info(f"Moved to: {parent}")
+    if current_branch == branch:
+        info(f"Moved to: {parent}")

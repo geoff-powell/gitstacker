@@ -18,18 +18,24 @@ def cmd_sync(args: list[str]) -> None:
     # Update trunk
     trunk = state["trunk"]
     info(f"Updating trunk ({trunk})...")
-    checkout(trunk)
+
+    # Only checkout trunk if we're not already on it
+    if current_branch != trunk:
+        checkout(trunk)
+
     result = pull_rebase(trunk)
 
     if not result.success:
         error(f"Failed to update trunk: {result.stderr}")
-        checkout(current_branch)
+        if current_branch != trunk:
+            checkout(current_branch)
         raise SystemExit(1)
 
     success(f"Trunk updated: {trunk}")
 
-    # Return to original branch
-    checkout(current_branch)
+    # Return to original branch (only if we moved)
+    if current_branch != trunk:
+        checkout(current_branch)
 
     # Restack
     print()

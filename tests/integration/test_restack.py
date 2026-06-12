@@ -161,3 +161,46 @@ class TestRestackEdgeCases:
         """Restack with no active stack errors."""
         with pytest.raises(SystemExit):
             cmd_restack([])
+
+
+class TestRestackContinue:
+    def test_continue_no_progress_errors(self, stacked_repo):
+        """--continue with no prior failure errors."""
+        checkout("branch-1")
+        with pytest.raises(SystemExit):
+            cmd_restack(["--continue"])
+
+    def test_continue_wrong_branch_errors(self, stacked_repo):
+        """--continue on wrong branch shows helpful error."""
+        # Manually set progress
+        state = load_state()
+        state["_restack_progress"] = {
+            "stack": "test-stack",
+            "failed_at": "branch-2",
+            "completed": ["branch-1"],
+            "original_branch": "branch-2",
+        }
+        save_state(state)
+
+        checkout("branch-1")  # Wrong branch
+        with pytest.raises(SystemExit):
+            cmd_restack(["--continue"])
+
+    def test_continue_clears_progress_on_success(self, stacked_repo):
+        """--continue clears _restack_progress when remaining branches succeed."""
+        # Simulate: branch-1 was the failed branch, manually resolved.
+        # Set progress indicating branch-1 failed.
+        state = load_state()
+        state["_restack_progress"] = {
+            "stack": "test-stack",
+            "failed_at": "branch-1",
+            "completed": [],
+            "original_branch": "branch-1",
+        }
+        save_state(state)
+
+        checkout("branch-1")
+        cmd_restack(["--continue"])
+
+        state = load_state()
+        assert "_restack_progress" not in state

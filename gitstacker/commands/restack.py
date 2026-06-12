@@ -14,8 +14,13 @@ import sys
 
 
 def cmd_restack(args: list[str]) -> None:
+    is_continue = "--continue" in args
+
     state = load_state()
     current_branch = get_current_branch()
+
+    if is_continue:
+        return _restack_continue(state, current_branch)
 
     # Find current stack
     stack = get_current_stack(state, current_branch)
@@ -130,3 +135,114 @@ def cmd_restack(args: list[str]) -> None:
             warn("Could not automatically restore stashed changes.")
             info("Your changes are still in the stash. Run `git stash pop` manually.")
             info(f"Stash error: {pop_result.stderr}")
+
+
+def _restack_continue(state: dict, current_branch: str) -> None:
+    """Continue a previously failed restack from where it left off."""
+    progress = state.get("_restack_progress")
+    if not progress:
+        error("No restack in progress. Run `gs restack` to start.")
+        raise SystemExit(1)
+
+    stack_name = progress["stack"]
+    stack = state["stacks"].get(stack_name)
+    if not stack:
+        error(f'Stack "{stack_name}" not found. Clearing progress.')
+        state.pop("_restack_progress", None)
+        save_state(state)
+        raise SystemExit(1)
+
+    failed_branch = progress["failed_at"]
+    completed = progress.get("completed", [])
+    original_branch = progress.get("original_branch", current_branch)
+
+    # Check that we're on the failed branch (user should have resolved conflicts)
+    if current_branch != failed_branch:
+        warn(f'Expected to be on "{failed_branch}" (the branch with conflicts).')
+        info(f"Switch to it and resolve conflicts first: git checkout {failed_branch}")
+        raise SystemExit(1)
+
+    info(f"Continuing restack from {bold(failed_branch)}...")
+    print()
+
+    # Find the index to continue from (the branch AFTER the failed one)
+    branches = stack["branches"]
+    try:
+        failed_idx = branches.index(failed_branch)
+    except ValueError:
+        error(f'Branch "{failed_branch}" no longer in stack.')
+        state.pop("_restack_progress", None)
+        save_state(state)
+        raise SystemExit(1)
+
+    # Update commit_base for the branch that was manually resolved
+    if failed_branch in state["branches"]:
+        parent = get_parent_branch(state, stack, failed_branch)
+        state["branches"][failed_branch]["commit_base"] = get_commit_hash(parent)
+
+    # Continue restacking remaining branches (after the failed one)
+    continue_idx = failed_idx + 1
+    branch_count = len(branches)
+    failed = False
+    failed_at = ""
+    newly_rebased = []
+
+    for i in range(continue_idx, branch_count):
+        branch = branches[i]
+        parent = get_parent_branch(state, stack, branch)
+        meta = state["branches"].get(branch, {})
+        old_base = meta.get("commit_base") or parent
+
+        idx_display = dim(f"[{i + 1}/{branch_count}]")
+        sys.stdout.write(f"  {idx_display} Rebasing {bold(branch)} onto {parent}...")
+        sys.stdout.flush()
+
+        result = rebase_onto(parent, old_base, branch)
+
+        if not result.success:
+            print(f" {red('CONFLICT')}")
+            rebase_abort()
+
+            sys.stdout.write(f"  {dim('  Trying simple rebase...')}")
+            sys.stdout.flush()
+
+            simple_result = git("rebase", parent, branch)
+            if simple_result.success:
+                print(f" {green('OK')}")
+                newly_rebased.append(branch)
+                if branch in state["branches"]:
+                    state["branches"][branch]["commit_base"] = get_commit_hash(parent)
+            else:
+                print(f" {red('CONFLICT')}")
+                rebase_abort()
+                failed = True
+                failed_at = branch
+                break
+        else:
+            print(f" {green('OK')}")
+            newly_rebased.append(branch)
+            if branch in state["branches"]:
+                state["branches"][branch]["commit_base"] = get_commit_hash(parent)
+
+    if failed:
+        state["_restack_progress"] = {
+            "stack": stack_name,
+            "failed_at": failed_at,
+            "completed": completed + [failed_branch] + newly_rebased,
+            "original_branch": original_branch,
+        }
+        save_state(state)
+        print()
+        warn(f'Restacking stopped at "{failed_at}" due to conflicts.')
+        info("Resolve conflicts, then run `gs restack --continue`.")
+    else:
+        state.pop("_restack_progress", None)
+        save_state(state)
+        print()
+        success("Stack restacked successfully!")
+
+    # Return to original branch
+    try:
+        checkout(original_branch)
+    except Exception:
+        pass

@@ -177,3 +177,15 @@ def has_remote_diverged(branch: str) -> bool:
     if not result.success:
         return False  # No remote branch yet
     return int(result.stdout) > 0
+
+
+def require_clean_tree(action: str = "proceed") -> None:
+    """Raise SystemExit if working tree is dirty.
+
+    Call this at the top of any command that will change branches.
+    """
+    if not is_working_tree_clean():
+        from .output import error, info
+        error("Working tree has uncommitted changes.")
+        info(f"Commit or stash your changes before {action}.")
+        raise SystemExit(1)

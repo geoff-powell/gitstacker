@@ -2,6 +2,7 @@
 
 from ..git_ops import (
     get_current_branch, checkout, fetch_remote, pull_rebase,
+    is_working_tree_clean,
 )
 from ..store import load_state
 from ..output import success, error, info
@@ -9,6 +10,11 @@ from .restack import cmd_restack
 
 
 def cmd_sync(args: list[str]) -> None:
+    if not is_working_tree_clean():
+        error("Working tree has uncommitted changes.")
+        info("Commit or stash your changes before syncing.")
+        raise SystemExit(1)
+
     state = load_state()
     current_branch = get_current_branch()
 

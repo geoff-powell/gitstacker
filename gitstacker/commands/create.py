@@ -2,7 +2,7 @@
 
 from ..git_ops import (
     get_current_branch, create_branch, branch_exists,
-    get_commit_hash, checkout,
+    get_commit_hash, checkout, is_working_tree_clean,
 )
 from ..store import (
     load_state, save_state, get_current_stack, add_branch_to_stack,
@@ -13,6 +13,11 @@ from ..output import success, error, info
 def cmd_create(args: list[str]) -> None:
     if not args:
         error("Branch name required. Usage: gs create <branch-name>")
+        raise SystemExit(1)
+
+    if not is_working_tree_clean():
+        error("Working tree has uncommitted changes.")
+        info("Commit or stash your changes before creating a new branch.")
         raise SystemExit(1)
 
     name = args[0]

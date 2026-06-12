@@ -1,6 +1,6 @@
 """gs delete - Remove a branch from its stack."""
 
-from ..git_ops import get_current_branch, checkout, git
+from ..git_ops import get_current_branch, checkout, git, is_working_tree_clean
 from ..store import (
     load_state, save_state, get_current_stack,
     get_parent_branch, remove_branch_from_stack,
@@ -28,6 +28,12 @@ def cmd_delete(args: list[str]) -> None:
 
     parent = get_parent_branch(state, stack, branch)
     current_branch = get_current_branch()
+
+    # Block if deleting current branch with dirty tree
+    if current_branch == branch and not is_working_tree_clean():
+        error("Working tree has uncommitted changes.")
+        info("Commit or stash your changes before deleting the current branch.")
+        raise SystemExit(1)
 
     # Move to parent if deleting current branch
     if current_branch == branch:

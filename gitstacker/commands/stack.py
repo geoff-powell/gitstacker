@@ -1,6 +1,6 @@
 """gs stack - Stack management commands."""
 
-from ..git_ops import get_current_branch, checkout
+from ..git_ops import get_current_branch, checkout, is_working_tree_clean
 from ..store import (
     load_state, save_state, create_stack,
     get_current_stack, delete_stack,
@@ -88,6 +88,11 @@ def stack_list() -> None:
 def stack_switch(args: list[str]) -> None:
     if not args:
         error("Stack name required. Usage: gs stack switch <name>")
+        raise SystemExit(1)
+
+    if not is_working_tree_clean():
+        error("Working tree has uncommitted changes.")
+        info("Commit or stash your changes before switching stacks.")
         raise SystemExit(1)
 
     name = args[0]

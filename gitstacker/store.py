@@ -5,7 +5,8 @@ Stores state in .git/gitstacker/state.json
 
 import json
 import os
-from dataclasses import dataclass, field, asdict
+import shutil
+from dataclasses import dataclass, field
 from typing import Optional
 from .git_ops import get_git_root
 
@@ -14,6 +15,72 @@ STATE_FILE = "state.json"
 DATA_DIR = "gitstacker"
 CONFIG_VERSION = 1
 
+
+# --- State Schema & Validation ---
+
+_STATE_DEFAULTS = {
+    "trunk": "main",
+    "stacks": {},
+    "branches": {},
+    "current_stack": None,
+    "version": CONFIG_VERSION,
+}
+
+
+def _validate_state(state: dict) -> dict:
+    """Validate and repair state, filling missing keys with defaults.
+
+    Ensures all required keys exist and have correct types.
+    Returns the repaired state dict.
+    """
+    # Fill missing top-level keys
+    for key, default in _STATE_DEFAULTS.items():
+        if key not in state:
+            state[key] = default
+
+    # Type validation & repair
+    if not isinstance(state.get("trunk"), str) or not state["trunk"]:
+        state["trunk"] = "main"
+    if not isinstance(state.get("stacks"), dict):
+        state["stacks"] = {}
+    if not isinstance(state.get("branches"), dict):
+        state["branches"] = {}
+    if not isinstance(state.get("version"), int):
+        state["version"] = CONFIG_VERSION
+    if state.get("current_stack") is not None and not isinstance(state["current_stack"], str):
+        state["current_stack"] = None
+
+    # Validate each stack entry
+    for name, stack in list(state["stacks"].items()):
+        if not isinstance(stack, dict):
+            del state["stacks"][name]
+            continue
+        if "name" not in stack:
+            stack["name"] = name
+        if "trunk" not in stack or not isinstance(stack["trunk"], str):
+            stack["trunk"] = state["trunk"]
+        if "branches" not in stack or not isinstance(stack["branches"], list):
+            stack["branches"] = []
+        if "created_at" not in stack:
+            stack["created_at"] = ""
+
+    # Validate each branch entry
+    for name, meta in list(state["branches"].items()):
+        if not isinstance(meta, dict):
+            del state["branches"][name]
+            continue
+        if "name" not in meta:
+            meta["name"] = name
+        if "parent" not in meta or not isinstance(meta["parent"], str):
+            meta["parent"] = state["trunk"]
+        meta.setdefault("pr_number", None)
+        meta.setdefault("pr_url", None)
+        meta.setdefault("commit_base", None)
+
+    return state
+
+
+# --- Dataclass definitions (for type reference) ---
 
 @dataclass
 class BranchMeta:
@@ -41,6 +108,8 @@ class GitStackerState:
     version: int = CONFIG_VERSION
 
 
+# --- File I/O ---
+
 def _get_data_dir() -> str:
     """Get the .git/gitstacker directory, creating it if needed."""
     root = get_git_root()
@@ -54,6 +123,15 @@ def _get_state_path() -> str:
     return os.path.join(_get_data_dir(), STATE_FILE)
 
 
+def _backup_state(path: str) -> None:
+    """Keep a backup of last known good state for recovery."""
+    bak_path = path + ".bak"
+    try:
+        shutil.copy2(path, bak_path)
+    except OSError:
+        pass  # Non-critical; best effort backup
+
+
 def is_initialized() -> bool:
     """Check if gitstacker has been initialized in this repo."""
     try:
@@ -64,19 +142,80 @@ def is_initialized() -> bool:
 
 
 def load_state() -> dict:
-    """Load the gitstacker state from disk."""
+    """Load the gitstacker state from disk.
+
+    Validates schema and fills missing keys with defaults.
+    Creates a .bak copy on successful load for crash recovery.
+    Falls back to .bak if primary state is corrupted.
+    """
     path = _get_state_path()
+
     if not os.path.exists(path):
         raise RuntimeError("GitStacker not initialized. Run `gs init` first.")
-    with open(path, "r") as f:
-        return json.load(f)
+
+    try:
+        with open(path, "r") as f:
+            state = json.load(f)
+    except json.JSONDecodeError as e:
+        # Try loading from backup
+        bak_path = path + ".bak"
+        if os.path.exists(bak_path):
+            try:
+                with open(bak_path, "r") as f:
+                    state = json.load(f)
+                # Restore backup as primary
+                shutil.copy2(bak_path, path)
+            except (json.JSONDecodeError, OSError):
+                raise RuntimeError(
+                    f"State file is corrupted and backup is unusable: {e}\n"
+                    f"  File: {path}\n"
+                    f"  Try: rm {path} && gs init"
+                )
+        else:
+            raise RuntimeError(
+                f"State file is corrupted (invalid JSON): {e}\n"
+                f"  File: {path}\n"
+                f"  Try: rm {path} && gs init"
+            )
+
+    if not isinstance(state, dict):
+        raise RuntimeError(
+            f"State file has invalid format (expected object, got {type(state).__name__})\n"
+            f"  File: {path}\n"
+            f"  Try: rm {path} && gs init"
+        )
+
+    # Validate and repair
+    state = _validate_state(state)
+
+    # Create backup of good state
+    _backup_state(path)
+
+    return state
 
 
 def save_state(state: dict) -> None:
-    """Save the gitstacker state to disk."""
+    """Save the gitstacker state to disk atomically.
+
+    Writes to a temp file first, then uses os.replace() for atomic rename.
+    This prevents corruption if the process is killed mid-write.
+    """
     path = _get_state_path()
-    with open(path, "w") as f:
-        json.dump(state, f, indent=2)
+    tmp_path = path + ".tmp"
+
+    try:
+        with open(tmp_path, "w") as f:
+            json.dump(state, f, indent=2)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp_path, path)
+    except OSError as e:
+        # Clean up temp file on failure (best effort)
+        try:
+            os.unlink(tmp_path)
+        except OSError:
+            pass
+        raise RuntimeError(f"Failed to save state: {e}")
 
 
 def init_state(trunk: str) -> dict:
@@ -91,6 +230,8 @@ def init_state(trunk: str) -> dict:
     save_state(state)
     return state
 
+
+# --- Query helpers ---
 
 def get_current_stack(state: dict, branch: str) -> Optional[dict]:
     """Get the stack containing the given branch, or None."""
@@ -123,6 +264,8 @@ def get_child_branches(stack: dict, branch: str) -> list[str]:
         return []
     return stack["branches"][pos + 1:]
 
+
+# --- Mutation helpers ---
 
 def add_branch_to_stack(state: dict, stack_name: str, branch_name: str, parent: str) -> None:
     """Add a branch to a stack."""

@@ -47,12 +47,14 @@ def stacked_repo(initialized_repo):
     for i, name in enumerate(["branch-1", "branch-2", "branch-3"]):
         parent = "main" if i == 0 else f"branch-{i}"
         create_branch(name)
+        # Record commit_base BEFORE adding commits (fork point = parent's HEAD)
+        commit_base = get_commit_hash("HEAD")
         # Add a commit
         (initialized_repo / f"file-{name}.txt").write_text(f"content for {name}")
         subprocess.run(["git", "add", "."], cwd=str(initialized_repo), check=True, capture_output=True)
         subprocess.run(["git", "commit", "-m", f"Add {name}"], cwd=str(initialized_repo), check=True, capture_output=True)
         add_branch_to_stack(state, "test-stack", name, parent)
-        state["branches"][name]["commit_base"] = get_commit_hash("HEAD")
+        state["branches"][name]["commit_base"] = commit_base
 
     save_state(state)
     return initialized_repo

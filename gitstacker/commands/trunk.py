@@ -2,7 +2,7 @@
 
 from ..git_ops import branch_exists
 from ..store import load_state, save_state
-from ..output import success, error, info
+from ..output import success, error, info, warn
 
 
 def cmd_trunk(args: list[str]) -> None:
@@ -18,6 +18,15 @@ def cmd_trunk(args: list[str]) -> None:
         error(f'Branch "{new_trunk}" does not exist.')
         raise SystemExit(1)
 
+    old_trunk = state["trunk"]
     state["trunk"] = new_trunk
+
+    # Update stacks that referenced the old trunk
+    affected = [s["name"] for s in state["stacks"].values() if s["trunk"] == old_trunk]
+    if affected:
+        for name in affected:
+            state["stacks"][name]["trunk"] = new_trunk
+        warn(f"Updated {len(affected)} stack(s) to use new trunk: {', '.join(affected)}")
+
     save_state(state)
     success(f"Trunk branch set to: {new_trunk}")

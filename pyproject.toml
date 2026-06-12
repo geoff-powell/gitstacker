@@ -1,0 +1,30 @@
+[project]
+name = "gitstacker"
+version = "0.1.0"
+description = "Git branch stacking tool — manage, rebase, and submit stacked PRs"
+requires-python = ">=3.9"
+license = "MIT"
+authors = [{ name = "GitStacker" }]
+keywords = ["git", "stacking", "branches", "pr", "github"]
+
+[project.scripts]
+gs = "gitstacker.cli:main"
+
+[project.optional-dependencies]
+dev = ["pytest>=7.0", "pytest-cov>=4.0"]
+
+[build-system]
+requires = ["setuptools>=68.0"]
+build-backend = "setuptools.build_meta"
+
+[tool.setuptools.packages.find]
+include = ["gitstacker*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-v --tb=short"
+markers = [
+    "unit: Unit tests (no git repos)",
+    "integration: Integration tests (real git repos)",
+    "e2e: End-to-end workflow tests",
+]

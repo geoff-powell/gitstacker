@@ -53,6 +53,7 @@ HELP_TEXT = f"""
   {cyan("delete")} [name] [--force] Remove branch from stack
   {cyan("trunk")} [name]            Show or set trunk branch
   {cyan("status")} [--json]         Show current state (JSON for AI agents)
+  {cyan("undo")}                    Undo the last mutating operation
   {cyan("completions")} <shell>     Output shell completions (bash/zsh/fish)
 
 {bold("EXAMPLES")}
@@ -173,6 +174,10 @@ def main() -> None:
         elif command == "status":
             from .commands.status import cmd_status
             cmd_status(command_args)
+
+        elif command == "undo":
+            from .commands.undo import cmd_undo
+            cmd_undo(command_args)
 
         else:
             error_out(f"Unknown command: {command}")

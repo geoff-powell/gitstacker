@@ -8,7 +8,7 @@ _gs_completion() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    commands="init create stack up down top bottom log restack submit sync delete trunk help"
+    commands="init create stack up down top bottom log restack submit sync delete trunk status modify freeze unfreeze completions aliases help"
     stack_commands="new list switch delete"
 
     case "${prev}" in
@@ -67,8 +67,16 @@ _gs() {
         'restack:Rebase all branches in current stack'
         'submit:Create/update stacked PRs'
         'sync:Fetch trunk and restack'
+        'diff:Show diff of current branch vs parent'
         'delete:Remove branch from stack'
         'trunk:Show or set trunk branch'
+        'status:Show current state'
+        'modify:Amend/commit and auto-restack'
+        'undo:Undo last mutating operation'
+        'freeze:Freeze a branch'
+        'unfreeze:Unfreeze a branch'
+        'completions:Output shell completions'
+        'aliases:Output shell aliases'
     )
 
     stack_commands=(
@@ -106,7 +114,7 @@ _gs "$@"
 FISH_COMPLETION = '''
 # Fish shell completions for gs (gitstacker)
 
-set -l commands init create stack up down top bottom log restack submit sync delete trunk
+set -l commands init create stack up down top bottom log restack submit sync diff delete trunk status modify undo freeze unfreeze completions aliases
 
 complete -c gs -f
 complete -c gs -n "not __fish_seen_subcommand_from $commands" -a "init" -d "Initialize gitstacker"

@@ -59,6 +59,7 @@ HELP_TEXT = f"""
   {cyan("freeze")} [name]            Freeze a branch (skip restack, block create)
   {cyan("unfreeze")} [name]          Unfreeze a branch
   {cyan("completions")} <shell>     Output shell completions (bash/zsh/fish)
+  {cyan("aliases")} [shell]          Output shell aliases (eval "$(gs aliases)")
 
 {bold("EXAMPLES")}
   {dim("# Start a new feature stack")}
@@ -85,16 +86,24 @@ HELP_TEXT = f"""
   gs bottom
 
 {bold("ALIASES")}
-  c     = create
-  s     = stack
-  u     = up
-  d     = down
-  l     = log
-  m     = modify
-  rs    = restack
-  pr    = submit
-  rm    = delete
-  bot   = bottom
+  c     = create        gsc    = gs create
+  s     = stack         gss    = gs stack
+  u     = up            gsu    = gs up
+  d     = down          gsd    = gs down
+  l     = log           gsl    = gs log
+  m     = modify        gsm    = gs modify
+  rs    = restack       gsrs   = gs restack
+  pr    = submit        gspr   = gs submit
+  rm    = delete        gsrm   = gs delete
+  bot   = bottom        gsbot  = gs bottom
+                        gst    = gs top
+                        gssync = gs sync
+                        gsdiff = gs diff
+                        gsst   = gs status
+
+  {dim("# Install terminal aliases:")}
+  eval "$(gs aliases)"          {dim("# bash/zsh")}
+  gs aliases fish | source      {dim("# fish")}
 
 {bold("OPTIONS")}
   --help, -h      Show this help message
@@ -175,6 +184,10 @@ def main() -> None:
         elif command == "completions":
             from .commands.completions import cmd_completions
             cmd_completions(command_args)
+
+        elif command == "aliases":
+            from .commands.aliases import cmd_aliases
+            cmd_aliases(command_args)
 
         elif command == "status":
             from .commands.status import cmd_status

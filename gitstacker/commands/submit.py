@@ -67,6 +67,11 @@ def cmd_submit(args: list[str]) -> None:
 
     # Collect PR numbers for stack description
     pr_numbers: dict[str, int] = {}
+    # Seed from saved state so network failures don't lose existing PR references
+    for branch in stack["branches"]:
+        meta = state["branches"].get(branch, {})
+        if meta.get("pr_number"):
+            pr_numbers[branch] = meta["pr_number"]
 
     # Create/update PRs from bottom to top
     info("Creating/updating PRs...")
@@ -146,7 +151,7 @@ def cmd_submit(args: list[str]) -> None:
         if meta.get("pr_url"):
             pr_urls[branch] = meta["pr_url"]
 
-    if len(pr_numbers) > 1:
+    if pr_numbers:
         info("Updating stack navigation comments...")
         for branch in stack["branches"]:
             meta = state["branches"].get(branch, {})

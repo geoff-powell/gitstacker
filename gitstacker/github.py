@@ -276,9 +276,11 @@ def upsert_stack_comment(
     existing_id = _find_stack_comment(pr_number)
 
     if existing_id:
-        return _update_comment(existing_id, body)
-    else:
-        return _create_comment(pr_number, body)
+        if _update_comment(existing_id, body):
+            return True
+        # Comment was deleted between find and update — fall through to create
+
+    return _create_comment(pr_number, body)
 
 
 def dim_text(text: str) -> str:

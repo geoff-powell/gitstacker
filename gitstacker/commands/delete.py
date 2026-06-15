@@ -6,10 +6,12 @@ from ..store import (
     get_parent_branch, remove_branch_from_stack,
 )
 from ..output import success, error, info, warn
+from ..journal import snapshot_before
 
 
 def cmd_delete(args: list[str]) -> None:
     state = load_state()
+    snapshot_before("delete", state)
     force = "--force" in args or "-f" in args
 
     # Get target branch

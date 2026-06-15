@@ -8,6 +8,7 @@ from ..store import (
     load_state, save_state, get_current_stack, add_branch_to_stack,
 )
 from ..output import success, error, info
+from ..journal import snapshot_before
 
 
 def cmd_create(args: list[str]) -> None:
@@ -27,6 +28,7 @@ def cmd_create(args: list[str]) -> None:
         raise SystemExit(1)
 
     state = load_state()
+    snapshot_before("create", state)
     current_branch = get_current_branch()
 
     # Determine which stack to add to

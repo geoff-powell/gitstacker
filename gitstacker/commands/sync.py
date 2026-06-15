@@ -6,6 +6,7 @@ from ..git_ops import (
 )
 from ..store import load_state
 from ..output import success, error, info
+from ..journal import snapshot_before
 from .restack import cmd_restack
 
 
@@ -16,6 +17,7 @@ def cmd_sync(args: list[str]) -> None:
         raise SystemExit(1)
 
     state = load_state()
+    snapshot_before("sync", state)
     current_branch = get_current_branch()
 
     info("Fetching from remote...")

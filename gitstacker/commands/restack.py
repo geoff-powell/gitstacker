@@ -22,6 +22,10 @@ def cmd_restack(args: list[str]) -> None:
     if is_continue:
         return _restack_continue(state, current_branch)
 
+    # Snapshot for undo (only on fresh restack, not --continue)
+    from ..journal import snapshot_before
+    snapshot_before("restack", state)
+
     # Find current stack
     stack = get_current_stack(state, current_branch)
     if not stack and state.get("current_stack"):
@@ -123,9 +127,14 @@ def cmd_restack(args: list[str]) -> None:
     # Return to original branch
     try:
         checkout(current_branch)
-    except Exception:
+    except Exception as e:
+        warn(f"Could not return to {current_branch}: {e}")
         if stack["branches"]:
-            checkout(stack["branches"][-1])
+            try:
+                checkout(stack["branches"][-1])
+                info(f"Now on: {stack['branches'][-1]}")
+            except Exception:
+                pass
 
     # Pop stash safely
     if did_stash:
@@ -155,6 +164,14 @@ def _restack_continue(state: dict, current_branch: str) -> None:
     failed_branch = progress["failed_at"]
     completed = progress.get("completed", [])
     original_branch = progress.get("original_branch", current_branch)
+
+    # Detect if a rebase is still in progress (user hasn't finished resolving)
+    rebase_check = git("rebase", "--show-current-patch")
+    if rebase_check.success:
+        error("A git rebase is still in progress.")
+        info("Finish resolving conflicts and run `git rebase --continue` first,")
+        info("then run `gs restack --continue`.")
+        raise SystemExit(1)
 
     # Check that we're on the failed branch (user should have resolved conflicts)
     if current_branch != failed_branch:
@@ -244,5 +261,11 @@ def _restack_continue(state: dict, current_branch: str) -> None:
     # Return to original branch
     try:
         checkout(original_branch)
-    except Exception:
-        pass
+    except Exception as e:
+        warn(f"Could not return to {original_branch}: {e}")
+        if stack["branches"]:
+            try:
+                checkout(stack["branches"][-1])
+                info(f"Now on: {stack['branches'][-1]}")
+            except Exception:
+                pass

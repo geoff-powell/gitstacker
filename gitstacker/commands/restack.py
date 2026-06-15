@@ -13,6 +13,71 @@ from ..output import success, error, info, warn, bold, green, red, yellow, dim
 import sys
 
 
+def restack_from(state: dict, stack: dict, start_index: int = 0,
+                 skip_frozen: bool = True) -> tuple[bool, str, list[str]]:
+    """Restack branches starting from start_index in the given stack.
+
+    Args:
+        state: Current gitstacker state dict.
+        stack: Stack dict containing the branches to rebase.
+        start_index: Index in stack["branches"] to start from (inclusive).
+        skip_frozen: If True, skip branches marked as frozen.
+
+    Returns:
+        Tuple of (all_succeeded: bool, failed_branch: str, successfully_rebased: list[str])
+        If all_succeeded is True, failed_branch is empty string.
+    """
+    branches = stack["branches"]
+    branch_count = len(branches)
+    successfully_rebased = []
+
+    for i in range(start_index, branch_count):
+        branch = branches[i]
+        meta = state["branches"].get(branch, {})
+
+        # Skip frozen branches
+        if skip_frozen and meta.get("frozen", False):
+            idx_display = dim(f"[{i + 1}/{branch_count}]")
+            print(f"  {idx_display} Skipping {bold(branch)} (frozen)")
+            continue
+
+        parent = get_parent_branch(state, stack, branch)
+        old_base = meta.get("commit_base") or parent
+
+        idx_display = dim(f"[{i + 1}/{branch_count}]")
+        sys.stdout.write(f"  {idx_display} Rebasing {bold(branch)} onto {parent}...")
+        sys.stdout.flush()
+
+        # Perform rebase --onto
+        result = rebase_onto(parent, old_base, branch)
+
+        if not result.success:
+            print(f" {red('CONFLICT')}")
+            rebase_abort()
+
+            # Try simple rebase as fallback
+            sys.stdout.write(f"  {dim('  Trying simple rebase...')}")
+            sys.stdout.flush()
+
+            simple_result = git("rebase", parent, branch)
+            if simple_result.success:
+                print(f" {green('OK')}")
+                successfully_rebased.append(branch)
+                if branch in state["branches"]:
+                    state["branches"][branch]["commit_base"] = get_commit_hash(parent)
+            else:
+                print(f" {red('CONFLICT')}")
+                rebase_abort()
+                return (False, branch, successfully_rebased)
+        else:
+            print(f" {green('OK')}")
+            successfully_rebased.append(branch)
+            if branch in state["branches"]:
+                state["branches"][branch]["commit_base"] = get_commit_hash(parent)
+
+    return (True, "", successfully_rebased)
+
+
 def cmd_restack(args: list[str]) -> None:
     is_continue = "--continue" in args
 
@@ -54,55 +119,10 @@ def cmd_restack(args: list[str]) -> None:
     info(f"Restacking {bold(stack_name)} ({branch_count} branches)...")
     print()
 
-    failed = False
-    failed_branch = ""
-    successfully_rebased = []
-
-    for i, branch in enumerate(stack["branches"]):
-        parent = get_parent_branch(state, stack, branch)
-        meta = state["branches"].get(branch, {})
-
-        # Old base for --onto rebase
-        old_base = meta.get("commit_base") or parent
-
-        idx_display = dim(f"[{i + 1}/{branch_count}]")
-        sys.stdout.write(f"  {idx_display} Rebasing {bold(branch)} onto {parent}...")
-        sys.stdout.flush()
-
-        # Perform rebase
-        result = rebase_onto(parent, old_base, branch)
-
-        if not result.success:
-            print(f" {red('CONFLICT')}")
-
-            # Abort and try simple rebase
-            rebase_abort()
-
-            sys.stdout.write(f"  {dim('  Trying simple rebase...')}")
-            sys.stdout.flush()
-
-            simple_result = git("rebase", parent, branch)
-            if simple_result.success:
-                print(f" {green('OK')}")
-                successfully_rebased.append(branch)
-                if branch in state["branches"]:
-                    state["branches"][branch]["commit_base"] = get_commit_hash(parent)
-            else:
-                print(f" {red('CONFLICT')}")
-                rebase_abort()
-                failed = True
-                failed_branch = branch
-                # Do NOT update state for this branch
-                break
-        else:
-            print(f" {green('OK')}")
-            successfully_rebased.append(branch)
-            # Update commit base
-            if branch in state["branches"]:
-                state["branches"][branch]["commit_base"] = get_commit_hash(parent)
+    all_ok, failed_branch, successfully_rebased = restack_from(state, stack, start_index=0)
 
     # Store or clear restack progress
-    if failed:
+    if not all_ok:
         state["_restack_progress"] = {
             "stack": stack["name"],
             "failed_at": failed_branch,
@@ -115,7 +135,7 @@ def cmd_restack(args: list[str]) -> None:
     # Always save state (only successfully rebased branches had commit_base updated)
     save_state(state)
 
-    if not failed:
+    if all_ok:
         print()
         success("Stack restacked successfully!")
     else:
@@ -199,49 +219,10 @@ def _restack_continue(state: dict, current_branch: str) -> None:
 
     # Continue restacking remaining branches (after the failed one)
     continue_idx = failed_idx + 1
-    branch_count = len(branches)
-    failed = False
-    failed_at = ""
-    newly_rebased = []
 
-    for i in range(continue_idx, branch_count):
-        branch = branches[i]
-        parent = get_parent_branch(state, stack, branch)
-        meta = state["branches"].get(branch, {})
-        old_base = meta.get("commit_base") or parent
+    all_ok, failed_at, newly_rebased = restack_from(state, stack, start_index=continue_idx)
 
-        idx_display = dim(f"[{i + 1}/{branch_count}]")
-        sys.stdout.write(f"  {idx_display} Rebasing {bold(branch)} onto {parent}...")
-        sys.stdout.flush()
-
-        result = rebase_onto(parent, old_base, branch)
-
-        if not result.success:
-            print(f" {red('CONFLICT')}")
-            rebase_abort()
-
-            sys.stdout.write(f"  {dim('  Trying simple rebase...')}")
-            sys.stdout.flush()
-
-            simple_result = git("rebase", parent, branch)
-            if simple_result.success:
-                print(f" {green('OK')}")
-                newly_rebased.append(branch)
-                if branch in state["branches"]:
-                    state["branches"][branch]["commit_base"] = get_commit_hash(parent)
-            else:
-                print(f" {red('CONFLICT')}")
-                rebase_abort()
-                failed = True
-                failed_at = branch
-                break
-        else:
-            print(f" {green('OK')}")
-            newly_rebased.append(branch)
-            if branch in state["branches"]:
-                state["branches"][branch]["commit_base"] = get_commit_hash(parent)
-
-    if failed:
+    if not all_ok:
         state["_restack_progress"] = {
             "stack": stack_name,
             "failed_at": failed_at,

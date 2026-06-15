@@ -16,6 +16,7 @@ Commands:
   top                     Jump to top of stack
   bottom                  Jump to bottom of stack
   log [--all]             Show current stack (or all with --all)
+  modify [flags]          Amend/commit and auto-restack upstack
   restack                 Rebase all branches in current stack
   submit [--draft]        Create/update stacked PRs
   sync                    Fetch trunk, update, and restack
@@ -54,6 +55,7 @@ HELP_TEXT = f"""
   {cyan("trunk")} [name]            Show or set trunk branch
   {cyan("status")} [--json]         Show current state (JSON for AI agents)
   {cyan("undo")}                    Undo the last mutating operation
+  {cyan("modify")} [flags]            Amend/commit and auto-restack upstack
   {cyan("freeze")} [name]            Freeze a branch (skip restack, block create)
   {cyan("unfreeze")} [name]          Unfreeze a branch
   {cyan("completions")} <shell>     Output shell completions (bash/zsh/fish)
@@ -88,6 +90,7 @@ HELP_TEXT = f"""
   u     = up
   d     = down
   l     = log
+  m     = modify
   rs    = restack
   pr    = submit
   rm    = delete
@@ -180,6 +183,10 @@ def main() -> None:
         elif command == "undo":
             from .commands.undo import cmd_undo
             cmd_undo(command_args)
+
+        elif command in ("modify", "m"):
+            from .commands.modify import cmd_modify
+            cmd_modify(command_args)
 
         elif command == "freeze":
             from .commands.freeze import cmd_freeze

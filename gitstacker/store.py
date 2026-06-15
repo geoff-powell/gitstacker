@@ -76,6 +76,7 @@ def _validate_state(state: dict) -> dict:
         meta.setdefault("pr_number", None)
         meta.setdefault("pr_url", None)
         meta.setdefault("commit_base", None)
+        meta.setdefault("frozen", False)
 
     return state
 
@@ -210,12 +211,8 @@ def save_state(state: dict) -> None:
             os.fsync(f.fileno())
         os.replace(tmp_path, path)
     except OSError as e:
-        # Clean up temp file on failure (best effort)
-        try:
-            os.unlink(tmp_path)
-        except OSError:
-            pass
-        raise RuntimeError(f"Failed to save state: {e}")
+        # Leave .tmp file in place for debugging (don't clean up)
+        raise RuntimeError(f"Failed to save state: {e}\n  Temp file preserved at: {tmp_path}")
 
 
 def init_state(trunk: str) -> dict:

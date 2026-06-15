@@ -33,6 +33,9 @@ cyan = _wrap(36, 39)
 gray = _wrap(90, 39)
 
 
+FROZEN_SYMBOL = "\u2744" if _COLOR else "[frozen]"  # snowflake: ❄
+
+
 class symbols:
     arrow = "\u2192" if _COLOR else "->"
     check = "\u2713" if _COLOR else "[ok]"

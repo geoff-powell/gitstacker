@@ -4,6 +4,7 @@ from ..git_ops import get_current_branch, get_commit_count, get_short_hash
 from ..store import load_state, get_current_stack, get_parent_branch
 from ..output import (
     info, heading, bold, cyan, green, yellow, dim, gray, symbols,
+    FROZEN_SYMBOL,
 )
 
 
@@ -49,14 +50,15 @@ def cmd_log(args: list[str]) -> None:
 
         pr_num = meta.get("pr_number")
         pr_tag = yellow(f" PR #{pr_num}") if pr_num else ""
+        frozen_mark = f" {FROZEN_SYMBOL}" if meta.get("frozen", False) else ""
         plural = "s" if commit_count > 1 else ""
         commits = dim(f" ({commit_count} commit{plural})") if commit_count > 0 else ""
         hash_display = gray(f" {hash_str}") if hash_str else ""
 
         if is_current:
-            print(f"  {green(symbols.pointer)} {green(bold(branch))}{hash_display}{commits}{pr_tag}")
+            print(f"  {green(symbols.pointer)} {green(bold(branch))}{hash_display}{commits}{pr_tag}{frozen_mark}")
         else:
-            print(f"  {symbols.circle} {branch}{hash_display}{commits}{pr_tag}")
+            print(f"  {symbols.circle} {branch}{hash_display}{commits}{pr_tag}{frozen_mark}")
 
         # Connector
         if i > 0:
@@ -98,12 +100,14 @@ def log_all(state: dict, current_branch: str) -> None:
             branch = s["branches"][i]
             is_curr = branch == current_branch
             prefix = "    "
-            pr_num = state["branches"].get(branch, {}).get("pr_number")
+            meta = state["branches"].get(branch, {})
+            pr_num = meta.get("pr_number")
             pr_tag = yellow(f" #{pr_num}") if pr_num else ""
+            frozen_mark = f" {FROZEN_SYMBOL}" if meta.get("frozen", False) else ""
 
             if is_curr:
-                print(f"{prefix}{green(symbols.pointer)} {green(branch)}{pr_tag}")
+                print(f"{prefix}{green(symbols.pointer)} {green(branch)}{pr_tag}{frozen_mark}")
             else:
-                print(f"{prefix}{symbols.circle} {branch}{pr_tag}")
+                print(f"{prefix}{symbols.circle} {branch}{pr_tag}{frozen_mark}")
 
         print()

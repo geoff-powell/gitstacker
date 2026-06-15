@@ -54,6 +54,8 @@ HELP_TEXT = f"""
   {cyan("trunk")} [name]            Show or set trunk branch
   {cyan("status")} [--json]         Show current state (JSON for AI agents)
   {cyan("undo")}                    Undo the last mutating operation
+  {cyan("freeze")} [name]            Freeze a branch (skip restack, block create)
+  {cyan("unfreeze")} [name]          Unfreeze a branch
   {cyan("completions")} <shell>     Output shell completions (bash/zsh/fish)
 
 {bold("EXAMPLES")}
@@ -178,6 +180,14 @@ def main() -> None:
         elif command == "undo":
             from .commands.undo import cmd_undo
             cmd_undo(command_args)
+
+        elif command == "freeze":
+            from .commands.freeze import cmd_freeze
+            cmd_freeze(command_args)
+
+        elif command == "unfreeze":
+            from .commands.freeze import cmd_unfreeze
+            cmd_unfreeze(command_args)
 
         else:
             error_out(f"Unknown command: {command}")

@@ -176,7 +176,10 @@ def has_remote_diverged(branch: str) -> bool:
     result = git("rev-list", "--count", f"{branch}..origin/{branch}")
     if not result.success:
         return False  # No remote branch yet
-    return int(result.stdout) > 0
+    try:
+        return int(result.stdout) > 0
+    except ValueError:
+        return False
 
 
 def require_clean_tree(action: str = "proceed") -> None:
@@ -189,3 +192,18 @@ def require_clean_tree(action: str = "proceed") -> None:
         error("Working tree has uncommitted changes.")
         info(f"Commit or stash your changes before {action}.")
         raise SystemExit(1)
+
+
+def get_all_branch_shas(branches: list[str]) -> dict[str, str]:
+    """Get commit SHAs for a list of branches. Skips branches that don't exist."""
+    shas = {}
+    for branch in branches:
+        result = git("rev-parse", branch)
+        if result.success:
+            shas[branch] = result.stdout
+    return shas
+
+
+def reset_branch_to_sha(branch: str, sha: str) -> GitResult:
+    """Force-reset a branch pointer to a specific SHA without checking it out."""
+    return git("branch", "-f", branch, sha)

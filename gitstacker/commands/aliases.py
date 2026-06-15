@@ -17,7 +17,7 @@ ALIASES = [
     ("gspr", "gs submit", "Create/update stacked PRs"),
     ("gsrm", "gs delete", "Remove branch from stack"),
     ("gsbot", "gs bottom", "Jump to bottom of stack"),
-    ("gst", "gs top", "Jump to top of stack"),
+    ("gstop", "gs top", "Jump to top of stack"),
     ("gssync", "gs sync", "Fetch trunk, update, and restack"),
     ("gsdiff", "gs diff", "Show diff of current branch vs parent"),
     ("gsst", "gs status", "Show current state"),
@@ -46,13 +46,29 @@ def _fish_aliases() -> str:
         "",
     ]
     for alias, command, desc in ALIASES:
-        lines.append(f"abbr -a {alias} {command}  # {desc}")
+        lines.append(f"# {desc}")
+        lines.append(f"abbr -a {alias} {command}")
     return "\n".join(lines) + "\n"
 
 
 def cmd_aliases(args: list[str]) -> None:
     """Output shell aliases for gs commands."""
     shell = args[0] if args else "bash"
+
+    if shell in ("--help", "-h"):
+        print("Usage: gs aliases [bash|zsh|fish|--list]")
+        print()
+        print("Generate shell aliases for gitstacker commands.")
+        print()
+        print("Shells:")
+        print("  bash, zsh   Alias definitions (eval-able)")
+        print("  fish        Fish abbreviations (source-able)")
+        print("  --list      Machine-readable alias list")
+        print()
+        print("Examples:")
+        print('  eval "$(gs aliases)"              # bash/zsh')
+        print("  gs aliases fish | source          # fish")
+        return
 
     if shell in ("bash", "zsh"):
         print(_bash_aliases())

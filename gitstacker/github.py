@@ -8,6 +8,9 @@ from dataclasses import dataclass
 from typing import Optional
 
 
+STACK_COMMENT_MARKER = "<!-- gitstacker:stack-comment -->"
+
+
 @dataclass
 class GhResult:
     stdout: str
@@ -161,3 +164,125 @@ def generate_stack_body(
     lines.append("_Managed by [GitStacker](https://github.com/gitstacker/gitstacker)_")
 
     return "\n".join(lines)
+
+
+# --- Stack comment management ---
+
+
+def _get_repo_nwo() -> Optional[str]:
+    """Get the owner/repo (name with owner) for the current repo."""
+    result = gh("repo", "view", "--json", "nameWithOwner", "-q", ".nameWithOwner")
+    if result.success:
+        return result.stdout.strip()
+    return None
+
+
+def _find_stack_comment(pr_number: int) -> Optional[int]:
+    """Find the gitstacker stack comment on a PR. Returns comment ID or None."""
+    result = gh(
+        "api", f"repos/{{owner}}/{{repo}}/issues/{pr_number}/comments",
+        "--paginate",
+        "--jq", f'[.[] | select(.body | contains("{STACK_COMMENT_MARKER}"))][0].id',
+    )
+    if not result.success or not result.stdout.strip():
+        return None
+
+    try:
+        comment_id = int(result.stdout.strip())
+        return comment_id
+    except (ValueError, TypeError):
+        return None
+
+
+def _create_comment(pr_number: int, body: str) -> bool:
+    """Create a new comment on a PR."""
+    result = gh("pr", "comment", str(pr_number), "--body", body)
+    return result.success
+
+
+def _update_comment(comment_id: int, body: str) -> bool:
+    """Update an existing comment by ID."""
+    result = gh(
+        "api", "repos/{owner}/{repo}/issues/comments/" + str(comment_id),
+        "-X", "PATCH",
+        "-f", f"body={body}",
+    )
+    return result.success
+
+
+def generate_stack_comment(
+    stack_name: str,
+    branches: list[str],
+    current_branch: str,
+    pr_numbers: dict[str, int],
+    pr_urls: dict[str, str],
+) -> str:
+    """Generate the stack navigation comment body for a specific PR.
+
+    Shows the full stack with links to each PR, marking the current one.
+    """
+    lines: list[str] = []
+    lines.append(f"### \U0001f4da Stack: `{stack_name}`")
+    lines.append("")
+
+    for i in range(len(branches) - 1, -1, -1):
+        branch = branches[i]
+        is_current = branch == current_branch
+        pr_num = pr_numbers.get(branch)
+        pr_url = pr_urls.get(branch)
+
+        if pr_num and pr_url:
+            pr_link = f"[#{pr_num}]({pr_url})"
+        elif pr_num:
+            pr_link = f"#{pr_num}"
+        else:
+            pr_link = "_no PR_"
+
+        if is_current:
+            lines.append(f"- **{i + 1}. `{branch}` \u2190 this PR** ({pr_link})")
+        else:
+            lines.append(f"- {i + 1}. `{branch}` ({pr_link})")
+
+    lines.append("")
+    lines.append(dim_text("Managed by GitStacker \u00b7 comment auto-updated on each `gs submit`"))
+    lines.append("")
+    lines.append(STACK_COMMENT_MARKER)
+
+    return "\n".join(lines)
+
+
+def upsert_stack_comment(
+    pr_number: int,
+    stack_name: str,
+    branches: list[str],
+    current_branch: str,
+    pr_numbers: dict[str, int],
+    pr_urls: dict[str, str],
+) -> bool:
+    """Create or update the stack navigation comment on a PR.
+
+    At most one gitstacker comment will exist per PR. If one already
+    exists (identified by the hidden marker), it is updated in place.
+    """
+    body = generate_stack_comment(
+        stack_name=stack_name,
+        branches=branches,
+        current_branch=current_branch,
+        pr_numbers=pr_numbers,
+        pr_urls=pr_urls,
+    )
+
+    # Try to find existing comment
+    existing_id = _find_stack_comment(pr_number)
+
+    if existing_id:
+        if _update_comment(existing_id, body):
+            return True
+        # Comment was deleted between find and update — fall through to create
+
+    return _create_comment(pr_number, body)
+
+
+def dim_text(text: str) -> str:
+    """Wrap text in a dim/small HTML tag for GitHub markdown."""
+    return f"<sub>{text}</sub>"

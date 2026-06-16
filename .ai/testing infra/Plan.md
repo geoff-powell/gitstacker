@@ -1,3 +1,4 @@
+@@ -1,157 +0,0 @@
 # Plan: Testing Infrastructure & Bug Fixes for GitStacker
 
 ## Overview

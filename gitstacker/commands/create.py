@@ -8,6 +8,7 @@ from ..store import (
     load_state, save_state, get_current_stack, add_branch_to_stack,
 )
 from ..output import success, error, info
+from ..journal import snapshot_before
 
 
 def cmd_create(args: list[str]) -> None:
@@ -27,7 +28,14 @@ def cmd_create(args: list[str]) -> None:
         raise SystemExit(1)
 
     state = load_state()
+    snapshot_before("create", state)
     current_branch = get_current_branch()
+
+    # Check if current branch (the parent) is frozen
+    if current_branch in state["branches"] and state["branches"][current_branch].get("frozen", False):
+        error(f'Cannot create on top of frozen branch "{current_branch}".')
+        info(f'Unfreeze it first: gs unfreeze {current_branch}')
+        raise SystemExit(1)
 
     # Determine which stack to add to
     stack = get_current_stack(state, current_branch)

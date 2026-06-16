@@ -8,6 +8,7 @@ from ..store import (
 from ..github import (
     is_gh_available, get_pr_for_branch, create_pr,
     update_pr_base, update_pr, generate_stack_body,
+    upsert_stack_comment,
 )
 from ..output import (
     success, error, info, heading, bold, green, yellow, cyan, dim,
@@ -66,6 +67,11 @@ def cmd_submit(args: list[str]) -> None:
 
     # Collect PR numbers for stack description
     pr_numbers: dict[str, int] = {}
+    # Seed from saved state so network failures don't lose existing PR references
+    for branch in stack["branches"]:
+        meta = state["branches"].get(branch, {})
+        if meta.get("pr_number"):
+            pr_numbers[branch] = meta["pr_number"]
 
     # Create/update PRs from bottom to top
     info("Creating/updating PRs...")
@@ -137,6 +143,30 @@ def cmd_submit(args: list[str]) -> None:
                 pr_numbers=pr_numbers,
             )
             update_pr(pr_num, body=body)
+
+    # Add/update stack navigation comment on each PR (at most 1 per PR)
+    pr_urls: dict[str, str] = {}
+    for branch in stack["branches"]:
+        meta = state["branches"].get(branch, {})
+        if meta.get("pr_url"):
+            pr_urls[branch] = meta["pr_url"]
+
+    if pr_numbers:
+        info("Updating stack navigation comments...")
+        for branch in stack["branches"]:
+            meta = state["branches"].get(branch, {})
+            pr_num = meta.get("pr_number")
+            if pr_num:
+                ok = upsert_stack_comment(
+                    pr_number=pr_num,
+                    stack_name=stack["name"],
+                    branches=stack["branches"],
+                    current_branch=branch,
+                    pr_numbers=pr_numbers,
+                    pr_urls=pr_urls,
+                )
+                status_icon = green("OK") if ok else yellow("SKIP")
+                sys.stdout.write(f"  {dim('comment')} #{pr_num} {status_icon}\n")
 
     save_state(state)
     print()

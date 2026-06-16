@@ -9,6 +9,7 @@ from ..output import (
     success, error, info, heading,
     bold, cyan, green, dim, gray, symbols,
 )
+from ..journal import snapshot_before
 
 
 def cmd_stack(args: list[str]) -> None:
@@ -124,6 +125,7 @@ def stack_delete(args: list[str]) -> None:
 
     name = args[0]
     state = load_state()
+    snapshot_before("stack_delete", state)
 
     try:
         stack = state["stacks"].get(name)

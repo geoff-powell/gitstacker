@@ -207,3 +207,28 @@ def get_all_branch_shas(branches: list[str]) -> dict[str, str]:
 def reset_branch_to_sha(branch: str, sha: str) -> GitResult:
     """Force-reset a branch pointer to a specific SHA without checking it out."""
     return git("branch", "-f", branch, sha)
+
+
+def is_ancestor(potential_ancestor: str, branch: str) -> bool:
+    """Check if potential_ancestor is a direct ancestor of branch.
+
+    Returns True if potential_ancestor's tip is reachable from branch.
+    """
+    result = git("merge-base", "--is-ancestor", potential_ancestor, branch)
+    return result.success
+
+
+def get_branches_at_commit(sha: str) -> list[str]:
+    """Get local branches whose tip points exactly at the given commit."""
+    result = git("branch", "--points-at", sha, "--format=%(refname:short)")
+    if not result.success:
+        return []
+    return [b for b in result.stdout.split("\n") if b]
+
+
+def get_branches_containing_commit(sha: str) -> list[str]:
+    """Get local branches that contain the given commit in their history."""
+    result = git("branch", "--contains", sha, "--format=%(refname:short)")
+    if not result.success:
+        return []
+    return [b for b in result.stdout.split("\n") if b]

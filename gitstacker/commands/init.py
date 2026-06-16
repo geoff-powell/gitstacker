@@ -18,4 +18,4 @@ def cmd_init(args: list[str]) -> None:
     trunk = args[0] if args else get_default_branch()
     init_state(trunk)
     success(f"Initialized GitStacker with trunk branch: {trunk}")
-    info("Run `gs stack new <name>` to create your first stack.")
+    info("Create a branch and run `gs track` to start stacking.")

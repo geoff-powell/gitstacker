@@ -79,7 +79,7 @@ def log_all(state: dict, current_branch: str) -> None:
     stacks = state["stacks"]
 
     if not stacks:
-        info("No stacks. Create one with: gs stack new <name>")
+        info("No stacks yet. Track a branch with: gs track")
         return
 
     heading("All Stacks")

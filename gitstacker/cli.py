@@ -39,7 +39,7 @@ HELP_TEXT = f"""
   {cyan("init")} [trunk]            Initialize gitstacker (default trunk: main)
   {cyan("create")} <name>           {dim("[deprecated]")} Create branch (use git checkout -b + gs track)
   {cyan("track")} [branch]           Track existing branch into current stack
-  {cyan("stack new")} <name>        Start a new stack
+  {cyan("stack new")} <name>        {dim("[deprecated]")} Create named stack (auto-created by gs track)
   {cyan("stack list")}              List all stacks
   {cyan("stack switch")} <name>     Switch to a different stack
   {cyan("stack delete")} <name>     Delete a stack (keeps git branches)
@@ -65,7 +65,6 @@ HELP_TEXT = f"""
 {bold("EXAMPLES")}
   {dim("# Start a new feature stack")}
   gs init
-  gs stack new auth-feature
   git checkout -b auth-api
   {dim("# ... make commits ...")}
   gs track

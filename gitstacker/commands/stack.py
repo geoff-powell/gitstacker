@@ -6,7 +6,7 @@ from ..store import (
     get_current_stack, delete_stack,
 )
 from ..output import (
-    success, error, info, heading,
+    success, error, info, warn, heading,
     bold, cyan, green, dim, gray, symbols,
 )
 from ..journal import snapshot_before
@@ -33,6 +33,10 @@ def cmd_stack(args: list[str]) -> None:
 
 
 def stack_new(args: list[str]) -> None:
+    warn("gs stack new is deprecated. Just use: gs track")
+    info("  Stacks are now created automatically when you track a branch.")
+    print()
+
     if not args:
         error("Stack name required. Usage: gs stack new <name>")
         raise SystemExit(1)
@@ -57,7 +61,7 @@ def stack_list() -> None:
     stacks = state["stacks"]
 
     if not stacks:
-        info("No stacks yet. Create one with: gs stack new <name>")
+        info("No stacks yet. Track a branch with: gs track")
         return
 
     heading("Stacks")

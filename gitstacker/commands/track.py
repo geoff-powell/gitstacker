@@ -145,8 +145,19 @@ def track_branch(
         if state.get("current_stack"):
             stack = state["stacks"].get(state["current_stack"])
         if not stack:
-            error("No active stack. Create one first with: gs stack new <name>")
-            return False
+            # Auto-create stack named after target branch
+            from ..store import create_stack
+            stack_name = target
+            try:
+                stack = create_stack(state, stack_name, state["trunk"])
+                state["current_stack"] = stack_name
+            except RuntimeError:
+                stack = state["stacks"].get(stack_name)
+                if stack:
+                    state["current_stack"] = stack_name
+                else:
+                    error("Could not create or find a stack.")
+                    return False
 
     trunk = stack["trunk"]
 
@@ -228,14 +239,26 @@ def cmd_track(args: list[str]) -> None:
         error(f'Branch "{target}" is already tracked in stack "{existing_stack["name"]}".')
         raise SystemExit(1)
 
-    # Find active stack
+    # Find active stack — auto-create if none exists
     stack = None
     if state.get("current_stack"):
         stack = state["stacks"].get(state["current_stack"])
 
     if not stack:
-        error("No active stack. Create one first with: gs stack new <name>")
-        raise SystemExit(1)
+        # Auto-create a stack named after this branch
+        from ..store import create_stack
+        stack_name = target
+        try:
+            stack = create_stack(state, stack_name, state["trunk"])
+            state["current_stack"] = stack_name
+        except RuntimeError:
+            # Stack with this name already exists, use it
+            stack = state["stacks"].get(stack_name)
+            if stack:
+                state["current_stack"] = stack_name
+            else:
+                error("Could not create or find a stack.")
+                raise SystemExit(1)
 
     # Track the branch (with walk-up if needed)
     result = track_branch(target, state, stack)

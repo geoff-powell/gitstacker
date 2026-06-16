@@ -36,8 +36,18 @@ def offer_track_current_branch(state: dict, branch: str):
             active_stack = state["stacks"].get(state["current_stack"])
         
         if not active_stack:
-            error("No active stack. Create one first with: gs stack new <name>")
-            raise SystemExit(1)
+            from .store import create_stack
+            stack_name = branch
+            try:
+                active_stack = create_stack(state, stack_name, state["trunk"])
+                state["current_stack"] = stack_name
+            except RuntimeError:
+                active_stack = state["stacks"].get(stack_name)
+                if active_stack:
+                    state["current_stack"] = stack_name
+                else:
+                    error("Could not create or find a stack.")
+                    raise SystemExit(1)
         
         if track_branch(branch, state, active_stack):
             save_state(state)

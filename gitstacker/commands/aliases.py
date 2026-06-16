@@ -8,6 +8,7 @@ Usage: gs aliases [bash|zsh|fish]
 # Alias definitions: (alias_name, gs_command, description)
 ALIASES = [
     ("gsc", "gs create", "Create a new branch on the current stack"),
+    ("gstr", "gs track", "Track current branch into stack"),
     ("gss", "gs stack", "Stack management commands"),
     ("gsu", "gs up", "Move up in the stack"),
     ("gsd", "gs down", "Move down in the stack"),

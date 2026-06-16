@@ -37,7 +37,8 @@ HELP_TEXT = f"""
 
 {bold("COMMANDS")}
   {cyan("init")} [trunk]            Initialize gitstacker (default trunk: main)
-  {cyan("create")} <name>           Create a new branch on the current stack
+  {cyan("create")} <name>           {dim("[deprecated]")} Create branch (use git checkout -b + gs track)
+  {cyan("track")} [branch]           Track existing branch into current stack
   {cyan("stack new")} <name>        Start a new stack
   {cyan("stack list")}              List all stacks
   {cyan("stack switch")} <name>     Switch to a different stack
@@ -65,10 +66,12 @@ HELP_TEXT = f"""
   {dim("# Start a new feature stack")}
   gs init
   gs stack new auth-feature
-  gs create auth-api
+  git checkout -b auth-api
   {dim("# ... make commits ...")}
-  gs create auth-ui
+  gs track
+  git checkout -b auth-ui
   {dim("# ... make commits ...")}
+  gs track
 
   {dim("# View the stack")}
   gs log
@@ -86,6 +89,7 @@ HELP_TEXT = f"""
   gs bottom
 
 {bold("ALIASES")}
+  t     = track         gstr   = gs track
   c     = create        gsc    = gs create
   s     = stack         gss    = gs stack
   u     = up            gsu    = gs up
@@ -132,6 +136,10 @@ def main() -> None:
         elif command in ("create", "c"):
             from .commands.create import cmd_create
             cmd_create(command_args)
+
+        elif command in ("track", "t"):
+            from .commands.track import cmd_track
+            cmd_track(command_args)
 
         elif command in ("stack", "s"):
             from .commands.stack import cmd_stack

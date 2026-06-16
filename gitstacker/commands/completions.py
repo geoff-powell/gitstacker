@@ -8,7 +8,7 @@ _gs_completion() {
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"
 
-    commands="init create stack up down top bottom log restack submit sync delete trunk status modify freeze unfreeze completions aliases help"
+    commands="init create track stack up down top bottom log restack submit sync delete trunk status modify freeze unfreeze completions aliases help"
     stack_commands="new list switch delete"
 
     case "${prev}" in
@@ -58,6 +58,7 @@ _gs() {
     commands=(
         'init:Initialize gitstacker in current repo'
         'create:Create a new branch on the current stack'
+        'track:Track existing branch into current stack'
         'stack:Stack management commands'
         'up:Move up in the stack'
         'down:Move down in the stack'
@@ -114,11 +115,12 @@ _gs "$@"
 FISH_COMPLETION = '''
 # Fish shell completions for gs (gitstacker)
 
-set -l commands init create stack up down top bottom log restack submit sync diff delete trunk status modify undo freeze unfreeze completions aliases
+set -l commands init create track stack up down top bottom log restack submit sync diff delete trunk status modify undo freeze unfreeze completions aliases
 
 complete -c gs -f
 complete -c gs -n "not __fish_seen_subcommand_from $commands" -a "init" -d "Initialize gitstacker"
 complete -c gs -n "not __fish_seen_subcommand_from $commands" -a "create" -d "Create a new branch"
+complete -c gs -n "not __fish_seen_subcommand_from $commands" -a "track" -d "Track existing branch"
 complete -c gs -n "not __fish_seen_subcommand_from $commands" -a "stack" -d "Stack management"
 complete -c gs -n "not __fish_seen_subcommand_from $commands" -a "up" -d "Move up in stack"
 complete -c gs -n "not __fish_seen_subcommand_from $commands" -a "down" -d "Move down in stack"

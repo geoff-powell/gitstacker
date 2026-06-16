@@ -3,6 +3,7 @@
 from ..git_ops import get_current_branch, checkout, is_working_tree_clean
 from ..store import load_state, get_current_stack, get_branch_position
 from ..output import success, error, warn, info
+from ..prompts import offer_track_current_branch
 
 
 def cmd_navigate(direction: str, args: list[str]) -> None:
@@ -33,8 +34,7 @@ def cmd_navigate(direction: str, args: list[str]) -> None:
                 success(f"Moved to: {target}")
                 return
 
-        error("Not on a stacked branch. Use `gs stack switch <name>` first.")
-        raise SystemExit(1)
+        stack = offer_track_current_branch(state, current_branch)
 
     pos = get_branch_position(stack, current_branch)
 

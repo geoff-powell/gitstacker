@@ -97,7 +97,7 @@ def cmd_restack(args: list[str]) -> None:
         stack = state["stacks"].get(state["current_stack"])
 
     if not stack:
-        error("No active stack found. Use `gs stack switch <name>` to select one.")
+        error("No active stack found. Track a branch with: gs track")
         raise SystemExit(1)
 
     if not stack["branches"]:

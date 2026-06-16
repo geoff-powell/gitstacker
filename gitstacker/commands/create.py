@@ -49,7 +49,7 @@ def cmd_create(args: list[str]) -> None:
         stack = state["stacks"].get(state["current_stack"])
 
     if not stack:
-        error("No active stack. Create one first with: gs stack new <name>")
+        error("No active stack. Track a branch with: gs track")
         raise SystemExit(1)
 
     # Parent is the current branch (if in stack) or the top of stack or trunk

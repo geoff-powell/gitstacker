@@ -96,7 +96,7 @@ HELP_TEXT = f"""
   pr    = submit        gspr   = gs submit
   rm    = delete        gsrm   = gs delete
   bot   = bottom        gsbot  = gs bottom
-                        gst    = gs top
+                        gstop  = gs top
                         gssync = gs sync
                         gsdiff = gs diff
                         gsst   = gs status

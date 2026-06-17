@@ -7,11 +7,15 @@ from ..git_ops import (
 from ..store import (
     load_state, save_state, get_current_stack, add_branch_to_stack,
 )
-from ..output import success, error, info
+from ..output import success, error, info, warn
 from ..journal import snapshot_before
 
 
 def cmd_create(args: list[str]) -> None:
+    warn("gs create is deprecated. Use: git checkout -b <name> && gs track")
+    info("  This command will be removed in a future version.")
+    print()
+
     if not args:
         error("Branch name required. Usage: gs create <branch-name>")
         raise SystemExit(1)

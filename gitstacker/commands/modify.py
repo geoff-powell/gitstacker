@@ -11,6 +11,7 @@ from ..store import (
 )
 from ..journal import snapshot_before
 from ..output import success, error, info, warn, bold, dim
+from ..prompts import offer_track_current_branch
 from .restack import restack_from
 
 
@@ -75,9 +76,7 @@ def cmd_modify(args: list[str]) -> None:
     # Validate: branch must be in a stack
     stack = get_current_stack(state, branch_to_modify)
     if not stack:
-        error(f'"{branch_to_modify}" is not in any stack.')
-        info("Use `gs create` to add branches to a stack first.")
-        raise SystemExit(1)
+        stack = offer_track_current_branch(state, branch_to_modify)
 
     # Validate: branch must not be frozen
     meta = state["branches"].get(branch_to_modify, {})

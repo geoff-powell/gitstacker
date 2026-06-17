@@ -5,6 +5,7 @@ import sys
 from ..git_ops import get_current_branch, get_merge_base
 from ..store import load_state, get_current_stack, get_parent_branch
 from ..output import error, info
+from ..prompts import offer_track_current_branch
 
 
 def cmd_diff(args: list[str]) -> None:
@@ -19,8 +20,7 @@ def cmd_diff(args: list[str]) -> None:
     # Find the stack and parent
     stack = get_current_stack(state, current_branch)
     if not stack:
-        error("Not on a stacked branch. Nothing to diff.")
-        raise SystemExit(1)
+        stack = offer_track_current_branch(state, current_branch)
 
     parent = get_parent_branch(state, stack, current_branch)
 
